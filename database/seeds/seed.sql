@@ -1,0 +1,59 @@
+-- seed.sql
+-- Optional local/demo data. Run AFTER 0001_init.sql and AFTER the two demo
+-- auth users below already exist in Supabase Auth (see note).
+--
+-- This does NOT create auth.users rows -- Supabase Auth (GoTrue) owns that
+-- table and user creation must go through the Auth API, not raw SQL. To
+-- reproduce the demo users this seed assumes, create them via the
+-- Admin API (service role key required) before running this file, e.g.:
+--
+--   curl -X POST "$SUPABASE_URL/auth/v1/admin/users" \
+--     -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+--     -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+--     -H "Content-Type: application/json" \
+--     -d '{"email":"demo.alice@example.com","password":"<pick one>","email_confirm":true,"user_metadata":{"full_name":"Alice Demo"}}'
+--
+-- Creating the user fires the `handle_new_user` trigger from 0001_init.sql,
+-- which provisions their profile, personal tenant, and owner membership
+-- automatically -- nothing below needs to (or should) touch those tables.
+--
+-- Everything below adds a small, realistic set of demo tasks to a demo
+-- user's personal tenant -- deliberately real work scenarios (a client
+-- proposal, a presentation, research, documentation, a team meeting), not
+-- "Lorem ipsum" placeholders, so the mobile Today/Tasks/Plan screens have
+-- something worth looking at: a mix of near-term and later deadlines, a
+-- mix of short and long estimated durations, and titles natural-language
+-- enough to show what "Add work" produces. Replace the tenant_id /
+-- created_by values with the ids Supabase actually assigned your demo
+-- user (see the lookup query at the bottom of this file) before running.
+--
+-- None of these are pre-prioritized or pre-scheduled -- that's the point:
+-- sign in as the demo user, tap "Prioritize with AI" on a few, then
+-- "Plan my day" to see the full flow work end to end on real-looking data.
+
+-- Example (replace the uuids before running):
+--
+-- insert into public.tasks (tenant_id, created_by, title, description, raw_input, status, due_at, estimated_minutes)
+-- values
+--   ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000',
+--    'Finish the client proposal', 'Draft budget, timeline, and scope for the Acme Corp renewal, then send to legal for review.',
+--    'finish the client proposal by friday', 'pending', now() + interval '2 days', 120),
+--   ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000',
+--    'Prepare Monday''s presentation', 'Product roadmap slides for the Monday leadership sync.',
+--    'prepare monday''s presentation', 'pending', now() + interval '4 days', 90),
+--   ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000',
+--    'Research competitor pricing', 'Survey 4-5 competitors'' published pricing tiers before the Q3 pricing review.',
+--    'research competitor pricing for the q3 review', 'pending', now() + interval '6 days', 90),
+--   ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000',
+--    'Update API documentation', 'Document the new /calendar/sync and /tasks/schedule/items endpoints.',
+--    'update the api documentation for the new endpoints', 'pending', now() + interval '9 days', 60),
+--   ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000',
+--    'Team sync meeting prep', 'Pull last sprint''s numbers together and write the three discussion points.',
+--    'prep for tomorrow''s team meeting', 'pending', now() + interval '1 day', 30);
+
+-- Handy lookup once your demo users exist:
+-- select p.id as user_id, p.email, t.id as tenant_id, t.name
+-- from public.profiles p
+-- join public.tenant_members tm on tm.user_id = p.id
+-- join public.tenants t on t.id = tm.tenant_id
+-- where p.email like 'demo.%@example.com';

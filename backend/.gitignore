@@ -1,0 +1,18 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# env files
+.env
+!.env.example
+
+# Google OAuth client secret files downloaded from Google Cloud Console
+client_secret*.json
+
+.coverage
+htmlcov/

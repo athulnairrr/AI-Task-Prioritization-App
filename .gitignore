@@ -1,0 +1,16 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Env files (defense in depth; each app also ignores its own)
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log

@@ -1,0 +1,14 @@
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+pydantic==2.13.4
+pydantic-settings==2.3.4
+python-dotenv==1.0.1
+asyncpg==0.31.0
+pyjwt[crypto]==2.13.0
+google-genai==2.19.0
+# Provides the IANA timezone database for stdlib `zoneinfo` -- required on
+# Windows (no system tz database) and on minimal Linux/Docker images
+# (python:3.11-slim included) that don't ship one either. Always needed,
+# not just for dev: see app/services/scheduling.py's timezone-aware
+# working hours.
+tzdata==2026.3
