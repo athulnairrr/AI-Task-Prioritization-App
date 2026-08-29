@@ -18,6 +18,11 @@ defaults:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      # CI-only dummy secrets for hermetic unit tests (not real credentials;
+      # tests requiring a live database/Gemini/Google key are skipped, not run).
+      OAUTH_STATE_SECRET: ci-test-oauth-state-secret-not-for-production-use
+      TOKEN_ENCRYPTION_KEY: feIgjWVuQT2mNs_H6e5Qz6ecQ8gXrcShJYhYwZcZhsQ=
     steps:
       - uses: actions/checkout@v4
 

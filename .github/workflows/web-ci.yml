@@ -30,6 +30,9 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Create placeholder env file
+        run: cp .env.example .env.local
+
       - name: Lint
         run: npm run lint
 
