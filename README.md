@@ -1,8 +1,40 @@
 # AI Work Planner
 
-AI-assisted task prioritization and scheduling SaaS. Users enter tasks, AI (Gemini) understands and prioritizes them, the scheduling engine builds an optimized plan around deadlines and calendar availability, and the plan is synced to Google Calendar and back to mobile/web in real time.
+**AI-assisted task prioritization and scheduling.** Enter a task in plain English, Gemini reads it and assigns a priority, category, confidence score, and time estimate, and a deterministic scheduling engine builds a plan around your deadlines and real Google Calendar availability — synced back to Calendar (and to every signed-in device) automatically.
 
-**Status:** foundation, auth, task management (create/view/edit/complete/delete), Gemini-powered AI prioritization, Google Calendar integration (read-only browsing plus write-scope event creation), a deterministic timezone-aware scheduling engine (`POST /tasks/schedule`, proposal-only), an "Apply Schedule" flow that writes the approved proposal to Google Calendar (`POST /tasks/schedule/apply`, idempotent, partial-failure-safe), and two-way Calendar synchronization (Google push notifications + incremental sync feed changes back into the app, propagated to both clients live via Supabase Realtime, with a manual-sync fallback and no polling) are implemented end to end across backend, web, and mobile. On top of that, the **mobile app** — the primary product deliverable — has a complete, polished MVP flow: onboarding, sign in, a Today home screen, natural-language task capture, AI prioritization, Plan my day/week, review, apply to Google Calendar, and live task/calendar state, all backed by the same API. Team calendars, automatic rescheduling, recurring-event intelligence, and a polished web dashboard are not yet built — see [`/docs/progress.md`](docs/progress.md) for what's done vs. planned.
+[![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue.svg)](LICENSE.md)
+[![Backend CI](https://github.com/athulnairrr/AI-Task-Prioritization-App/actions/workflows/backend-ci.yml/badge.svg)](../../actions/workflows/backend-ci.yml)
+[![Mobile CI](https://github.com/athulnairrr/AI-Task-Prioritization-App/actions/workflows/mobile-ci.yml/badge.svg)](../../actions/workflows/mobile-ci.yml)
+[![Web CI](https://github.com/athulnairrr/AI-Task-Prioritization-App/actions/workflows/web-ci.yml/badge.svg)](../../actions/workflows/web-ci.yml)
+
+> **License note:** this repository is source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE.md) — free to use, modify, and share for noncommercial purposes; commercial use requires a separate license from the copyright holder.
+
+---
+
+## Screenshots
+
+All screenshots below are captured live from the Flutter app running on a physical Android device (Pixel 10), signed in against the real backend and a real Gemini/Google Calendar connection — not mocked or staged.
+
+| | |
+|---|---|
+| ![Onboarding](docs/screenshots/01_onboarding.png) **Onboarding** | ![Sign in](docs/screenshots/02_sign_in.png) **Sign in** |
+| ![Today](docs/screenshots/03_today.png) **Today** — focus time, high-priority tasks, merged agenda | ![Tasks](docs/screenshots/04_tasks_categories.png) **Tasks** — category filters, AI priority/confidence |
+| ![Add work](docs/screenshots/05_add_work.png) **Add Work** — natural-language task capture | ![Task detail](docs/screenshots/06_task_detail_ai_calendar.png) **Task detail** — AI prioritization + live Calendar sync status |
+| ![Plan](docs/screenshots/08_plan_proposal.png) **Plan** — AI-proposed schedule from real Calendar availability | ![Calendar](docs/screenshots/07_calendar_synced.png) **Calendar** — connected, merged agenda, AI-scheduled block |
+
+## What it does
+
+1. **Capture** — type a task in plain English (e.g. *"Prepare the quarterly tax filing by next Friday"*); no separate fields required.
+2. **Prioritize** — tap "Prioritize with AI" and Gemini returns a priority score, confidence, category, effort estimate, and a one-line reasoning — an explicit, user-triggered call, never automatic.
+3. **Plan** — "Plan my day/week" combines every prioritized task with real Google Calendar free/busy data through a deterministic (non-AI) scheduling engine, and returns a reviewable proposal.
+4. **Apply** — approving the proposal creates real Google Calendar events, records the resulting event IDs, and is safe to re-run (idempotent, partial-failure-safe).
+5. **Sync** — changes made directly in Google Calendar (moved/deleted events) flow back into the app via push notifications + incremental sync, and every change propagates to all signed-in devices live through Supabase Realtime — no manual refresh, no polling.
+
+## Status
+
+Backend, mobile, and web are implemented end to end: auth, task management, Gemini-powered prioritization, Google Calendar OAuth (read + incremental write scope), a timezone-aware scheduling engine, an idempotent "Apply Schedule" flow, and two-way Calendar synchronization with live cross-client propagation. The **Flutter mobile app** is the primary deliverable and has a complete, polished MVP flow (onboarding → sign-in → Today → Add Work → Prioritize → Plan → Apply → Calendar → Settings). The web client is a functional but intentionally minimal dashboard. Team calendars, subscription billing/usage metering, and a production deployment target are not yet built.
+
+See [`/docs/progress.md`](docs/progress.md) for the full phase-by-phase history and what remains, and [`/docs/decisions.md`](docs/decisions.md) for the architecture decision log (28 ADRs).
 
 ## Architecture overview
 
@@ -17,7 +49,7 @@ Full details, data flow, and technology rationale: [`/docs/architecture.md`](doc
 /web        Next.js + TypeScript web dashboard
 /backend    FastAPI backend
 /database   SQL migrations + seed data (Supabase Postgres)
-/docs       Architecture, ADRs, progress log
+/docs       Architecture, ADRs, progress log, screenshots
 /infra      Local Docker development environment
 /.github    CI workflows
 ```
@@ -30,12 +62,10 @@ Each app (`mobile`, `web`, `backend`) has its own `README.md` and `.env.example`
 - [Node.js](https://nodejs.org/) 20.x LTS + npm
 - [Python](https://www.python.org/) 3.11+
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) (optional, for the local Compose stack)
-- A [Supabase](https://supabase.com/) project (for hosted Postgres/Auth once those phases start)
-- Xcode (iOS builds) / Android Studio (Android builds), as needed
+- A [Supabase](https://supabase.com/) project (hosted Postgres/Auth/Realtime)
+- Xcode (iOS builds, macOS only) / Android Studio (Android builds), as needed
 
-> Note: Docker was not available in this project's dev environment, so the `infra/docker-compose.yml` stack is written to standard conventions but not run-verified here — see [`/docs/progress.md`](docs/progress.md#known-issues). Everything else (`flutter analyze`/`test`, `npm run lint`/`typecheck`/`build`, `pytest`/`ruff`, and the task API) has been verified live against a real Supabase project.
-
-## Initial setup
+## Setup (≈15–20 minutes)
 
 1. Create a [Supabase](https://supabase.com/) project. From Project Settings, collect:
    - Project URL
@@ -44,7 +74,7 @@ Each app (`mobile`, `web`, `backend`) has its own `README.md` and `.env.example`
    - JWKS URL: `${SUPABASE_URL}/auth/v1/.well-known/jwks.json`
    - A database connection string — prefer the **connection pooler** (`aws-0-<region>.pooler.supabase.com:6543`, username `postgres.<project-ref>`) over the direct `db.<ref>.supabase.co:5432` host, which is IPv6-only on some networks. URL-encode special characters in the password (`@` → `%40`).
 
-2. Apply the database migration (see [`/database/README.md`](database/README.md)):
+2. Apply the database migrations (see [`/database/README.md`](database/README.md)):
 
    ```bash
    cd database
@@ -55,8 +85,8 @@ Each app (`mobile`, `web`, `backend`) has its own `README.md` and `.env.example`
 3. Install and configure each app:
 
    ```bash
-   git clone <this-repo>
-   cd "AI Task Prioritization App"
+   git clone https://github.com/athulnairrr/AI-Task-Prioritization-App.git
+   cd AI-Task-Prioritization-App
 
    # Mobile
    cd mobile && flutter pub get && cp .env.example .env && cd ..
@@ -77,35 +107,35 @@ Each app (`mobile`, `web`, `backend`) has its own `README.md` and `.env.example`
 
 5. For AI prioritization, get a free-tier [Gemini API key](https://aistudio.google.com/apikey) and set `GEMINI_API_KEY` in `backend/.env` (`GEMINI_MODEL` defaults to `gemini-3.1-flash-lite`). Without it, `/tasks/{id}/prioritize` returns a clean `502` rather than crashing — everything else works fine.
 
-6. For Google Calendar, create a Google Cloud OAuth client (Web application type, Calendar API enabled, no billing required) and set `GOOGLE_OAUTH_CLIENT_ID`/`GOOGLE_OAUTH_CLIENT_SECRET`/`GOOGLE_OAUTH_REDIRECT_URI` plus a generated `OAUTH_STATE_SECRET` and `TOKEN_ENCRYPTION_KEY` in `backend/.env`. Full step-by-step Cloud Console setup: [`/docs/architecture.md`](docs/architecture.md#google-calendar-integration). Apply `database/migrations/0002_calendar_tokens.sql`, `database/migrations/0003_calendar_write_scope.sql`, and `database/migrations/0004_calendar_sync.sql` first.
+6. For Google Calendar, create a Google Cloud OAuth client (Web application type, Calendar API enabled, no billing required) and set `GOOGLE_OAUTH_CLIENT_ID`/`GOOGLE_OAUTH_CLIENT_SECRET`/`GOOGLE_OAUTH_REDIRECT_URI` plus a generated `OAUTH_STATE_SECRET` and `TOKEN_ENCRYPTION_KEY` in `backend/.env`. Full step-by-step Cloud Console setup: [`/docs/architecture.md`](docs/architecture.md#google-calendar-integration). Apply `database/migrations/0002_calendar_tokens.sql`, `0003_calendar_write_scope.sql`, and `0004_calendar_sync.sql` first.
 
-7. (Optional) For live Google Calendar push notifications, set `GOOGLE_CALENDAR_WEBHOOK_URL` in `backend/.env` to a real public HTTPS URL Google can reach (e.g. via a deployed backend, or an `ngrok`/similar tunnel in dev) pointing at `/calendar/webhook`. Leave it unset to skip push notifications entirely — the app falls back to explicit `POST /calendar/sync` calls (on calendar-panel mount + a manual "Sync now" button), with no functional loss beyond not being instant. See [`/docs/architecture.md`](docs/architecture.md#two-way-calendar-synchronization).
+7. (Optional) For live Google Calendar push notifications, set `GOOGLE_CALENDAR_WEBHOOK_URL` in `backend/.env` to a real public HTTPS URL Google can reach (e.g. a deployed backend, or an `ngrok`-style tunnel in dev) pointing at `/calendar/webhook`. Leave it unset to skip push notifications — the app falls back to explicit `POST /calendar/sync` calls (on calendar-panel mount + a manual "Sync now" button), with no functional loss beyond not being instant.
 
 **Never commit real secrets** — only `.env.example` files are tracked in git; every app's `.gitignore` excludes `.env`/`.env.local`.
 
 ### Auth model at a glance
 
-Signup/login/logout/password-reset are handled by the Supabase Auth SDK directly from `mobile`/`web` — the backend is not in that path. A database trigger auto-creates a personal tenant (workspace) and owner membership for every new user. The FastAPI backend verifies the caller's Supabase JWT (via JWKS) on every request and independently re-checks tenant membership in Postgres before trusting any tenant id a client sends — see [`/docs/architecture.md`](docs/architecture.md#auth-architecture) for the full flow and [`/docs/decisions.md`](docs/decisions.md) (ADR-006 through ADR-008) for why.
+Sign-up/sign-in/logout/password-reset are handled by the Supabase Auth SDK directly from `mobile`/`web` — the backend is not in that path. A database trigger auto-creates a personal tenant (workspace) and owner membership for every new user. The FastAPI backend verifies the caller's Supabase JWT (via JWKS) on every request and independently re-checks tenant membership in Postgres before trusting any tenant id a client sends. See [`/docs/architecture.md`](docs/architecture.md#auth-architecture) and ADR-006–ADR-008 in [`/docs/decisions.md`](docs/decisions.md).
 
 ### Task management
 
-Both clients sign the user in via Supabase, then call the FastAPI task API (`/tasks`) with the resulting access token — create, list (with status filter), view, edit, complete, and delete. See [`/docs/architecture.md`](docs/architecture.md#task-api) for the endpoint table.
+Both clients sign the user in via Supabase, then call the FastAPI task API (`/tasks`) with the resulting access token — create, list (with status filter), view, edit, complete, and delete. See [`/docs/architecture.md`](docs/architecture.md#task-api).
 
 ### AI prioritization
 
-An explicit "Prioritize with AI" action on a task calls `POST /tasks/{id}/prioritize`, which sends the task's title/details to Gemini (`gemini-3.1-flash-lite`, free tier, structured JSON output only) and stores category/urgency/importance/priority/confidence/duration/reasoning in `task_ai_results`. It's never called automatically — not on task creation, not on list/refresh, not on a schedule. See [`/docs/architecture.md`](docs/architecture.md#gemini-integration) for the model, structured output schema, scoring logic, and cost strategy.
+An explicit "Prioritize with AI" action on a task calls `POST /tasks/{id}/prioritize`, which sends the task's title/details to Gemini (`gemini-3.1-flash-lite`, free tier, structured JSON output only) and stores category/urgency/importance/priority/confidence/duration/reasoning. It's never called automatically. See [`/docs/architecture.md`](docs/architecture.md#gemini-integration).
 
 ### Google Calendar
 
-A "Connect Google Calendar" action starts a standard OAuth authorization-code flow handled entirely by the backend — neither client ever sees a Google client secret, refresh token, or access token. Once connected, both clients can view connection status, a busy-interval preview (`GET /calendar/availability`), and disconnect. Calendar access starts read-only; tapping "Apply to Google Calendar" triggers an incremental OAuth upgrade (same connection, no disconnect/reconnect) that adds the `calendar.events` write scope. See [`/docs/architecture.md`](docs/architecture.md#google-calendar-integration) for the OAuth flow, required Google Cloud setup, scopes, and token security approach.
+A "Connect Google Calendar" action starts a standard OAuth authorization-code flow handled entirely by the backend — neither client ever sees a Google client secret, refresh token, or access token. Calendar access starts read-only; applying a schedule triggers an incremental OAuth upgrade (same connection, no disconnect/reconnect) that adds the `calendar.events` write scope. See [`/docs/architecture.md`](docs/architecture.md#google-calendar-integration).
 
 ### Scheduling
 
-A "Plan my day" action calls `POST /tasks/schedule`, which combines each task's Gemini priority/duration with Google Calendar availability — using the connected calendar's own timezone, not UTC — through a deterministic, dependency-free engine (`app/services/scheduling.py`); Gemini never picks a timestamp, and nothing is written to Google Calendar or the database, the response is a proposal for the user to review. Tapping **Apply to Google Calendar** calls `POST /tasks/schedule/apply`, which independently revalidates every item (still free, still before the task's deadline, no overlap) before creating each event, persists the resulting event mapping, and is safe to retry — re-submitting an already-applied item is reported as `already_applied` rather than creating a duplicate. A batch reports per-item results (`Created: 2 / Failed: 1` style) so a partial failure is never presented as a full success. See [`/docs/architecture.md`](docs/architecture.md#scheduling-engine) and its "Apply Schedule" section for the algorithm, OAuth upgrade flow, event mapping, and idempotency design.
+"Plan my day" calls `POST /tasks/schedule`, combining each task's Gemini priority/duration with real Calendar availability (in the connected calendar's own timezone) through a deterministic, dependency-free engine — Gemini never picks a timestamp, and nothing is written until the proposal is approved. "Apply to Google Calendar" (`POST /tasks/schedule/apply`) independently revalidates every item before creating each event, records the event mapping, and is safe to retry. See [`/docs/architecture.md`](docs/architecture.md#scheduling-engine).
 
 ### Two-way Calendar synchronization
 
-Changes made directly in Google Calendar now flow back into the app: a Google push notification (or, as a $0-cost fallback with no polling, an explicit `POST /calendar/sync` call when a client opens the calendar panel or the user taps "Sync now") triggers an incremental sync using Google's `syncToken` mechanism. An app-created event that gets moved externally updates the corresponding task's schedule; one that gets deleted is never silently recreated — it's flagged (`GET /tasks/schedule/needs-attention`) so the user can re-apply it. A genuinely external event (never created by this app) is cached as a normalized busy block, never turned into a task. Every resulting database change reaches both clients live via Supabase Realtime (no manual refresh, no application-level "publish" step — the tables involved are simply in the `supabase_realtime` publication with the same RLS policies that already scope them to tenant members). See [`/docs/architecture.md`](docs/architecture.md#two-way-calendar-synchronization) for the watch-channel lifecycle, `syncToken`/410-recovery strategy, event-mapping rules, and how sync loops are prevented by construction.
+Changes made directly in Google Calendar flow back into the app via push notifications (or an explicit `POST /calendar/sync` fallback, no polling). A moved app-created event updates its task's schedule; a deleted one is flagged, never silently recreated. Genuinely external events are cached as busy blocks, never turned into tasks. Every resulting change reaches all signed-in clients live via Supabase Realtime. See [`/docs/architecture.md`](docs/architecture.md#two-way-calendar-synchronization).
 
 ## Development commands
 
@@ -137,3 +167,7 @@ See [`/database/README.md`](database/README.md) for conventions.
 - [`/docs/architecture.md`](docs/architecture.md) — system architecture, component responsibilities, data flow, technology rationale, MVP vs. future
 - [`/docs/decisions.md`](docs/decisions.md) — architecture decision record (ADR) log
 - [`/docs/progress.md`](docs/progress.md) — completed work, current phase, remaining phases, known issues
+
+## License
+
+Source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE.md). You may use, modify, and distribute this code freely for any noncommercial purpose (personal, educational, research, evaluation). **Commercial use is not permitted** without a separate license from the copyright holder — see [`LICENSE.md`](LICENSE.md) for the full terms and contact details.
