@@ -6,6 +6,7 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 .idea/
+.claude/
 
 # Env files (defense in depth; each app also ignores its own)
 .env
