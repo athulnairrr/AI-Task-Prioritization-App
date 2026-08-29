@@ -109,7 +109,11 @@ class _TodayScreenState extends State<TodayScreen> {
         final prioritized = (results[0] as List<PrioritizedTask>)
             .where((t) => t.isPrioritized)
             .toList()
-          ..sort((a, b) => b.priorityScore!.compareTo(a.priorityScore!));
+          // effectivePriorityScore (priority + deadline-proximity boost)
+          // rather than the raw AI score, so an approaching deadline is
+          // reflected here too -- see PrioritizedTask.effectivePriorityScore.
+          ..sort((a, b) =>
+              (b.effectivePriorityScore ?? b.priorityScore!).compareTo(a.effectivePriorityScore ?? a.priorityScore!));
         setState(() {
           _highPriority = prioritized.take(4).toList();
           _scheduleItems = (results[1] as List<ScheduleItem>)..sort((a, b) => a.startsAt.compareTo(b.startsAt));
@@ -346,7 +350,7 @@ class _HighPriorityTile extends StatelessWidget {
                 runSpacing: 4,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  PriorityBadge(score: task.priorityScore),
+                  PriorityBadge(score: task.effectivePriorityScore ?? task.priorityScore),
                   if (task.effortEstimateMinutes != null)
                     Text(Format.durationMinutes(task.effortEstimateMinutes!),
                         style: Theme.of(context).textTheme.bodySmall),

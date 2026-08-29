@@ -99,9 +99,18 @@ class PrioritizedTaskOut(BaseModel):
     estimated_minutes: int | None
     created_at: datetime
     priority_score: float | None = None
+    # Gemini's `priority_score` plus a deterministic deadline-proximity
+    # boost (app/services/priority.py) -- what both clients should actually
+    # sort/display by, so an approaching deadline is reflected without
+    # waiting for the user to re-tap "Prioritize with AI". Equal to
+    # `priority_score` for a task with no due date.
+    effective_priority_score: float | None = None
     confidence_score: float | None = None
     urgency: str | None = None
     importance: str | None = None
     category: str | None = None
+    # Display grouping of `category` onto the brief's professional/personal/
+    # educational buckets -- see app/services/priority.py.
+    category_group: str | None = None
     effort_estimate_minutes: int | None = None
     reasoning: str | None = None

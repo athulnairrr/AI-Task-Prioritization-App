@@ -105,10 +105,12 @@ class PrioritizedTask {
     this.estimatedMinutes,
     required this.createdAt,
     this.priorityScore,
+    this.effectivePriorityScore,
     this.confidenceScore,
     this.urgency,
     this.importance,
     this.category,
+    this.categoryGroup,
     this.effortEstimateMinutes,
     this.reasoning,
   });
@@ -121,10 +123,17 @@ class PrioritizedTask {
   final int? estimatedMinutes;
   final DateTime createdAt;
   final double? priorityScore;
+  // priorityScore plus a deterministic deadline-proximity boost (backend
+  // app/services/priority.py) -- what the UI should sort/display by, so an
+  // approaching deadline shows up without a fresh "Prioritize with AI" tap.
+  final double? effectivePriorityScore;
   final double? confidenceScore;
   final String? urgency;
   final String? importance;
   final String? category;
+  // category grouped onto the brief's professional/personal/educational
+  // buckets -- see backend app/services/priority.py.
+  final String? categoryGroup;
   final int? effortEstimateMinutes;
   final String? reasoning;
 
@@ -140,10 +149,12 @@ class PrioritizedTask {
       estimatedMinutes: json['estimated_minutes'] as int?,
       createdAt: DateTime.parse(json['created_at'] as String),
       priorityScore: (json['priority_score'] as num?)?.toDouble(),
+      effectivePriorityScore: (json['effective_priority_score'] as num?)?.toDouble(),
       confidenceScore: (json['confidence_score'] as num?)?.toDouble(),
       urgency: json['urgency'] as String?,
       importance: json['importance'] as String?,
       category: json['category'] as String?,
+      categoryGroup: json['category_group'] as String?,
       effortEstimateMinutes: json['effort_estimate_minutes'] as int?,
       reasoning: json['reasoning'] as String?,
     );

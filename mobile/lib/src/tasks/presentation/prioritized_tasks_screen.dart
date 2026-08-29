@@ -30,11 +30,23 @@ class PrioritizedTasksScreen extends StatefulWidget {
   State<PrioritizedTasksScreen> createState() => _PrioritizedTasksScreenState();
 }
 
+/// Category groups shown as filter chips on the Tasks tab -- Gemini's own
+/// `category` is finer-grained (see backend app/services/priority.py); this
+/// is just the brief's professional/personal/educational split plus an
+/// "All" option. `null` label maps to no filter.
+const _categoryFilters = <(String label, String? group)>[
+  ('All', null),
+  ('Professional', 'professional'),
+  ('Personal', 'personal'),
+  ('Educational', 'educational'),
+];
+
 class _PrioritizedTasksScreenState extends State<PrioritizedTasksScreen> {
   late final _api = widget._injectedApi ?? TaskApiClient();
   _LoadStatus _status = _LoadStatus.loading;
   List<PrioritizedTask> _tasks = const [];
   String? _error;
+  String? _categoryFilter;
   CalendarRealtimeSubscription? _realtime;
 
   @override
@@ -71,42 +83,79 @@ class _PrioritizedTasksScreenState extends State<PrioritizedTasksScreen> {
     }
   }
 
+  List<PrioritizedTask> get _filteredTasks {
+    if (_categoryFilter == null) return _tasks;
+    return _tasks.where((t) => t.categoryGroup == _categoryFilter).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final filtered = _filteredTasks;
     return Scaffold(
       appBar: AppBar(title: const Text('Tasks')),
-      body: switch (_status) {
-        _LoadStatus.loading => const Padding(
-            padding: EdgeInsets.all(Spacing.lg),
-            child: SkeletonList(count: 5),
-          ),
-        _LoadStatus.error => ErrorState(message: _error ?? 'Something went wrong.', onRetry: _load),
-        _LoadStatus.loaded => _tasks.isEmpty
-            ? EmptyState(
-                icon: Icons.task_alt_outlined,
-                title: 'No tasks yet',
-                message: 'Add what you need to get done -- AI will help you prioritize it.',
-                actionLabel: 'Add work',
-                onAction: () => _openAddWork(context),
-              )
-            : RefreshIndicator(
-                onRefresh: _load,
-                child: ListView.separated(
-                  padding: const EdgeInsets.all(Spacing.lg),
-                  itemCount: _tasks.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: Spacing.sm),
-                  itemBuilder: (context, index) => _TaskCard(
-                    task: _tasks[index],
-                    onOpen: () async {
-                      final changed = await Navigator.of(context).push<bool>(
-                        MaterialPageRoute(builder: (_) => TaskDetailScreen(taskId: _tasks[index].id)),
-                      );
-                      if (changed == true) _load();
-                    },
-                  ),
-                ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(Spacing.lg, Spacing.sm, Spacing.lg, 0),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final (label, group) in _categoryFilters)
+                    Padding(
+                      padding: const EdgeInsets.only(right: Spacing.sm),
+                      child: ChoiceChip(
+                        label: Text(label),
+                        selected: _categoryFilter == group,
+                        onSelected: (_) => setState(() => _categoryFilter = group),
+                      ),
+                    ),
+                ],
               ),
-      },
+            ),
+          ),
+          Expanded(
+            child: switch (_status) {
+              _LoadStatus.loading => const Padding(
+                  padding: EdgeInsets.all(Spacing.lg),
+                  child: SkeletonList(count: 5),
+                ),
+              _LoadStatus.error => ErrorState(message: _error ?? 'Something went wrong.', onRetry: _load),
+              _LoadStatus.loaded => filtered.isEmpty
+                  ? (_tasks.isEmpty
+                      ? EmptyState(
+                          icon: Icons.task_alt_outlined,
+                          title: 'No tasks yet',
+                          message: 'Add what you need to get done -- AI will help you prioritize it.',
+                          actionLabel: 'Add work',
+                          onAction: () => _openAddWork(context),
+                        )
+                      : const EmptyState(
+                          icon: Icons.filter_list_off,
+                          title: 'No tasks in this category',
+                          message: 'Try a different filter.',
+                        ))
+                  : RefreshIndicator(
+                      onRefresh: _load,
+                      child: ListView.separated(
+                        padding: const EdgeInsets.all(Spacing.lg),
+                        itemCount: filtered.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: Spacing.sm),
+                        itemBuilder: (context, index) => _TaskCard(
+                          task: filtered[index],
+                          onOpen: () async {
+                            final changed = await Navigator.of(context).push<bool>(
+                              MaterialPageRoute(builder: (_) => TaskDetailScreen(taskId: filtered[index].id)),
+                            );
+                            if (changed == true) _load();
+                          },
+                        ),
+                      ),
+                    ),
+            },
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _openAddWork(context),
         child: const Icon(Icons.add),
@@ -145,7 +194,9 @@ class _TaskCard extends StatelessWidget {
                 runSpacing: Spacing.xs,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  PriorityBadge(score: task.priorityScore),
+                  PriorityBadge(score: task.effectivePriorityScore ?? task.priorityScore),
+                  if (task.categoryGroup != null)
+                    _Meta(icon: Icons.label_outline, text: _categoryLabel(task.categoryGroup!)),
                   if (task.confidenceScore != null)
                     _Meta(icon: Icons.verified_outlined, text: '${(task.confidenceScore! * 100).round()}% confidence'),
                   if (task.dueAt != null)
@@ -176,6 +227,19 @@ class _TaskCard extends StatelessWidget {
   }
 
   String _dateOnly(DateTime dt) => dt.toLocal().toString().split(' ').first;
+
+  String _categoryLabel(String group) {
+    switch (group) {
+      case 'professional':
+        return 'Professional';
+      case 'personal':
+        return 'Personal';
+      case 'educational':
+        return 'Educational';
+      default:
+        return 'Other';
+    }
+  }
 }
 
 class _Meta extends StatelessWidget {

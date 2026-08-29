@@ -118,17 +118,14 @@ class _AddWorkScreenState extends State<AddWorkScreen> {
             const SizedBox(height: Spacing.md),
             Text('Examples', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: scheme.onSurfaceVariant)),
             const SizedBox(height: Spacing.sm),
-            Wrap(
-              spacing: Spacing.sm,
-              runSpacing: Spacing.sm,
-              children: [
-                for (final example in _examples)
-                  ActionChip(
-                    label: Text(example),
-                    onPressed: () => setState(() => _textController.text = example),
-                  ),
-              ],
-            ),
+            // Custom rows rather than ActionChip: a full-sentence example
+            // doesn't fit Material's pill-chip shape, and the default chip
+            // theme's faint background + built-in min tap-target height
+            // made these barely visible with too much space between them.
+            for (final example in _examples) ...[
+              _ExampleRow(text: example, onTap: () => setState(() => _textController.text = example)),
+              const SizedBox(height: Spacing.xs),
+            ],
             const SizedBox(height: Spacing.xl),
             TextButton.icon(
               onPressed: () => setState(() => _showAdvanced = !_showAdvanced),
@@ -171,6 +168,49 @@ class _AddWorkScreenState extends State<AddWorkScreen> {
                   : const Text('Add task'),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A single tappable example row on the Add Work screen -- a real border
+/// and full-contrast text so it reads clearly, and compact/shrink-wrapped
+/// so several in a row don't leave large gaps (see AddWorkScreen build()).
+class _ExampleRow extends StatelessWidget {
+  const _ExampleRow({required this.text, required this.onTap});
+
+  final String text;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surface,
+      borderRadius: BorderRadius.circular(Corners.md),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(Corners.md),
+        onTap: onTap,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.sm),
+          decoration: BoxDecoration(
+            border: Border.all(color: scheme.outlineVariant),
+            borderRadius: BorderRadius.circular(Corners.md),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.add_circle_outline, size: 16, color: scheme.primary),
+              const SizedBox(width: Spacing.sm),
+              Expanded(
+                child: Text(
+                  text,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: scheme.onSurface),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

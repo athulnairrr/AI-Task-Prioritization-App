@@ -12,6 +12,7 @@ import uuid
 import asyncpg
 
 from app.schemas.task import PrioritizedTaskOut, TaskCreate, TaskOut, TaskStatus, TaskUpdate
+from app.services.priority import category_group, effective_priority_score
 
 _COLUMNS = (
     "id, tenant_id, created_by, title, description, raw_input, "
@@ -124,25 +125,44 @@ async def list_prioritized_tasks(
         """,
         *params,
     )
-    return [_to_prioritized_task_out(r) for r in rows]
+    tasks = [_to_prioritized_task_out(r) for r in rows]
+    # Re-sort this page by effective_priority_score (priority_score plus the
+    # deadline-proximity boost -- see app/services/priority.py) rather than
+    # the raw SQL order, so a task with a near deadline properly outranks
+    # one Gemini scored slightly higher but due much later. Computed here,
+    # not in SQL, since "now" and the boost tiers are plain Python, not
+    # worth a database-side date function for this scale of list.
+    tasks.sort(
+        key=lambda t: (
+            t.effective_priority_score is None,  # unprioritized tasks sort last
+            -(t.effective_priority_score or 0),
+            t.due_at is None,
+            t.due_at or t.created_at,
+        )
+    )
+    return tasks
 
 
 def _to_prioritized_task_out(row: asyncpg.Record) -> PrioritizedTaskOut:
     raw = row["raw_response"]
     raw_data = (json.loads(raw) if isinstance(raw, str) else raw) or {}
+    priority_score = float(row["priority_score"]) if row["priority_score"] is not None else None
+    due_at = row["due_at"]
     return PrioritizedTaskOut(
         id=row["id"],
         title=row["title"],
         description=row["description"],
         status=TaskStatus(row["status"]),
-        due_at=row["due_at"],
+        due_at=due_at,
         estimated_minutes=row["estimated_minutes"],
         created_at=row["created_at"],
-        priority_score=float(row["priority_score"]) if row["priority_score"] is not None else None,
+        priority_score=priority_score,
+        effective_priority_score=effective_priority_score(priority_score, due_at),
         confidence_score=raw_data.get("confidence_score"),
         urgency=row["urgency"],
         importance=raw_data.get("importance"),
         category=row["category"],
+        category_group=category_group(row["category"]),
         effort_estimate_minutes=row["effort_estimate_minutes"],
         reasoning=row["reasoning"],
     )
